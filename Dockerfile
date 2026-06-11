@@ -1,0 +1,8 @@
+FROM node:24-alpine
+WORKDIR /app
+# Zero runtime deps: only package.json + source are needed.
+COPY package.json ./
+COPY src ./src
+ENV NODE_ENV=production
+EXPOSE 8080
+CMD ["node", "src/server.js"]

@@ -1,0 +1,24 @@
+services:
+  oauth-proxy:
+    build: .
+    container_name: wasender-oauth-proxy
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8080"
+      DB_PATH: /data/oauth.db
+      # Self-heal: discover the current Quick Tunnel URL from cloudflared's
+      # metrics API on startup, overriding any stale PUBLIC_BASE_URL in .env.
+      CLOUDFLARED_METRICS_URL: http://cloudflared:2000/quicktunnel
+    volumes:
+      - ./data:/data
+    expose:
+      - "8080"
+    depends_on:
+      - cloudflared
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: wasender-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --metrics :2000 --url http://oauth-proxy:8080
