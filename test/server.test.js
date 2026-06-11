@@ -180,6 +180,24 @@ test('refresh token rotates and the old one cannot be replayed', async () => {
   assert.equal(r2.status, 200);
 });
 
+test('repeated bad passphrases from one IP trip a 429 backoff', async () => {
+  const { client_id } = await registerClient();
+  const { challenge } = pkce();
+  const attempt = () => postForm('/authorize', {
+    client_id,
+    redirect_uri: REDIRECT,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    passphrase: 'wrong-on-purpose',
+  });
+  // First RL_MAX_FAILS (5) are rejected as 401...
+  for (let i = 0; i < 5; i++) {
+    assert.equal((await attempt()).status, 401);
+  }
+  // ...the next attempt is blocked with 429.
+  assert.equal((await attempt()).status, 429);
+});
+
 test('oversized request body is rejected with 413', async () => {
   const big = 'x'.repeat(70 * 1024); // > 64 KB
   const res = await fetch(`${base}/register`, {

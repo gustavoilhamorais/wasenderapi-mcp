@@ -31,8 +31,9 @@ const REFRESH_TTL = 30 * 24 * 3600; // 30 days
 const MAX_BODY = 64 * 1024;        // 64 KB request-body cap
 const MAX_CLIENTS = 100;           // hard cap on registered client rows
 const CLIENT_TTL = 24 * 3600;      // prune token-less clients older than this
-const RL_MAX_FAILS = 5;            // failed passphrase attempts before backoff
+const RL_MAX_FAILS = 5;            // per-IP failed passphrase attempts before backoff
 const RL_BLOCK_SEC = 5 * 60;       // backoff window once tripped
+const RL_GLOBAL_MAX = 20;          // total failed attempts per window before a global block
 
 if (!WASENDER_PAT) console.warn('[warn] WASENDER_PAT is empty - upstream calls will fail.');
 if (!ADMIN_PASSPHRASE) console.warn('[warn] ADMIN_PASSPHRASE is empty - consent gate is open!');
@@ -155,19 +156,28 @@ function parseForm(buf) {
   return Object.fromEntries(new URLSearchParams(buf.toString('utf8')));
 }
 
-// Best-effort client IP. Behind the Cloudflare tunnel the real client address is
-// carried in CF-Connecting-IP / X-Forwarded-For; fall back to the socket peer.
+// Best-effort client IP, used only as a rate-limit key. Behind the Cloudflare
+// tunnel the real client address is carried in CF-Connecting-IP, set by
+// Cloudflare's edge. We deliberately do NOT trust X-Forwarded-For: its
+// left-most entry is fully client-supplied, so honoring it would let an
+// attacker rotate the key and sidestep the per-IP backoff. The global ceiling
+// below is the backstop in case CF-Connecting-IP itself is forged (only
+// possible if the origin is reached off-tunnel, which the compose deployment
+// does not expose).
 function clientIp(req) {
   return req.headers['cf-connecting-ip']
-    || (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
     || (req.socket && req.socket.remoteAddress)
     || 'unknown';
 }
 
-// ---------- in-memory per-IP failed-auth backoff ----------
+// ---------- in-memory failed-auth backoff ----------
+// Two layers: a per-IP backoff for the common case, and a global ceiling that
+// bounds total attempts per window even if the per-IP key is spoofed.
 const authFails = new Map(); // ip -> { count, blockedUntil }
+const globalFails = { count: 0, windowStart: 0, blockedUntil: 0 };
 
 function authBlocked(ip) {
+  if (globalFails.blockedUntil > now()) return true;
   const e = authFails.get(ip);
   if (!e) return false;
   if (e.blockedUntil > now()) return true;
@@ -175,10 +185,15 @@ function authBlocked(ip) {
   return false;
 }
 function noteAuthFail(ip) {
+  const t = now();
   const e = authFails.get(ip) || { count: 0, blockedUntil: 0 };
   e.count += 1;
-  if (e.count >= RL_MAX_FAILS) e.blockedUntil = now() + RL_BLOCK_SEC;
+  if (e.count >= RL_MAX_FAILS) e.blockedUntil = t + RL_BLOCK_SEC;
   authFails.set(ip, e);
+
+  if (t - globalFails.windowStart > RL_BLOCK_SEC) { globalFails.windowStart = t; globalFails.count = 0; }
+  globalFails.count += 1;
+  if (globalFails.count >= RL_GLOBAL_MAX) globalFails.blockedUntil = t + RL_BLOCK_SEC;
 }
 function noteAuthSuccess(ip) { authFails.delete(ip); }
 
