@@ -18,7 +18,7 @@ services:
       - cloudflared
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.6.0
     container_name: wasender-cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate --metrics :2000 --url http://oauth-proxy:8080

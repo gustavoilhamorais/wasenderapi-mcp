@@ -7,8 +7,22 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [ ! -f .env ]; then
-  echo "ERROR: .env not found. Copy .env.example to .env and fill WASENDER_PAT + ADMIN_PASSPHRASE first." >&2
+  echo "ERROR: .env not found. Copy .env.example to .env and fill WASENDER_PAT first." >&2
   exit 1
+fi
+
+# Ensure an ADMIN_PASSPHRASE exists; generate a strong random one if it is
+# missing or empty. An existing value is never overwritten.
+if ! grep -qE '^ADMIN_PASSPHRASE=.+' .env; then
+  GEN_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)"
+  if grep -q '^ADMIN_PASSPHRASE=' .env; then
+    sed -i "s#^ADMIN_PASSPHRASE=.*#ADMIN_PASSPHRASE=${GEN_PASS}#" .env
+  else
+    echo "ADMIN_PASSPHRASE=${GEN_PASS}" >> .env
+  fi
+  echo "==> No ADMIN_PASSPHRASE set; generated a random one and wrote it to .env:"
+  echo "      ${GEN_PASS}"
+  echo "    Keep it safe — you'll type it on the consent screen."
 fi
 
 echo "==> Building and starting stack..."
