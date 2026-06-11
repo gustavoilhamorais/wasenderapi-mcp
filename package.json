@@ -2,11 +2,13 @@
   "name": "wasender-mcp-oauth-proxy",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "type": "commonjs",
   "description": "OAuth 2.1 (PKCE) facade proxy that fronts WASenderAPI's MCP for Claude.ai custom connectors",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=24"

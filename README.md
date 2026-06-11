@@ -13,8 +13,11 @@ Claude.ai  --OAuth 2.1 + PKCE-->  this proxy  --Bearer PAT-->  wasenderapi.com/m
 ```
 
 ## Requirements
-- Docker + Docker Compose (already present on this server)
+- Docker + Docker Compose
 - A **paid** WASenderAPI plan + Personal Access Token (MCP needs a paid plan)
+- Node 24+ if you want to run the proxy or tests outside Docker (it relies on
+  the built-in `node:sqlite`, still experimental — Node prints a one-line
+  `ExperimentalWarning` on startup, which is expected)
 
 ## Setup
 1. Copy the env template and fill in your secrets:
@@ -24,7 +27,9 @@ Claude.ai  --OAuth 2.1 + PKCE-->  this proxy  --Bearer PAT-->  wasenderapi.com/m
    Set in `.env`:
    - `WASENDER_PAT` — your WASenderAPI Personal Access Token.
    - `ADMIN_PASSPHRASE` — the password you'll type on the consent screen.
-     (A random one is generated for you if you used the setup script; keep it safe.)
+     You can leave this empty: `scripts/up.sh` generates a strong random
+     passphrase, writes it into `.env`, and prints it once — keep it safe. If
+     you set your own value, the script leaves it untouched.
    Leave `PUBLIC_BASE_URL` empty — the script fills it in.
 
 2. Bring everything up:
@@ -68,9 +73,33 @@ Both services use `restart: unless-stopped`, so they survive reboots/crashes.
 - `/token` — `authorization_code` (PKCE S256) + `refresh_token` grants
 - `/mcp` — validates the issued token, swaps in your `WASENDER_PAT`, streams to upstream
 
-State (clients/codes/tokens) is stored in SQLite at `./data/oauth.db`.
+State (clients/codes/tokens) is stored in SQLite at `./data/oauth.db`. Only the
+**SHA-256 hashes** of access/refresh tokens are persisted, never the raw tokens.
+
+> **Upgrade note:** older builds stored raw tokens. On first start after this
+> change the proxy drops the legacy token table (a tolerant migration that
+> leaves the rest of `oauth.db` intact), so any tokens issued before the upgrade
+> stop working — reconnect once from Claude.ai to get fresh ones.
 
 ## Security notes
-- `ADMIN_PASSPHRASE` is the only gate on consent. Use a strong value.
-- Your `WASENDER_PAT` lives in `.env` and is injected server-side; Claude never sees it.
+- `ADMIN_PASSPHRASE` is the only gate on consent. Use a strong value. The
+  passphrase check is constant-time, and repeated failures from one IP trigger a
+  temporary backoff.
+- Authorization is PKCE-only (public client, no `client_secret`). `client_id`
+  and `redirect_uri` are validated against the registered client on every
+  `/authorize` and `/token` call.
+- Refresh tokens rotate on every use; a replayed old refresh token is rejected.
+- Your `WASENDER_PAT` lives in `.env` and is injected server-side; Claude never
+  sees it.
 - `.env` and `data/` are git-ignored.
+- To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+## Development
+Run the test suite (no dependencies to install — Node 24 built-ins only):
+```bash
+npm test          # node --test
+node --check src/server.js
+```
+
+## License
+[MIT](LICENSE) © 2026 Gus
