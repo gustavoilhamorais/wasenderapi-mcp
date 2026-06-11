@@ -2,17 +2,18 @@
 
 ## Reporting a vulnerability
 
-If you discover a security issue in this project, please report it privately.
-
-**Contact:** the repository’s GitHub Security Advisories
+If you discover a security issue in this project, please report it privately
+through GitHub's [Report a vulnerability](https://github.com/gustavoilhamorais/wasenderapi-mcp/security/advisories/new)
+tab (the repository's **Security → Advisories** page). Please do **not** open a
+public issue for security problems.
 
 Please include:
 - a description of the issue and its impact,
 - steps to reproduce (a proof of concept if possible),
 - any suggested remediation.
 
-Please do **not** open a public GitHub issue for security problems. We will
-acknowledge your report as soon as possible and keep you updated on the fix.
+I will acknowledge your report as soon as possible and keep you updated on the
+fix.
 
 ## Scope
 
