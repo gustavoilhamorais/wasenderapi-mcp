@@ -1,5 +1,14 @@
 # WASenderAPI → Claude.ai MCP Connector
 
+> [!WARNING]
+> **Unofficial, unaffiliated, use-at-your-own-risk.** This is a personal,
+> third-party project. It is **not** built, endorsed, sponsored, or supported by
+> WASenderAPI, by Anthropic / Claude, or by Cloudflare. "WASenderAPI", "Claude",
+> and "Cloudflare" are the trademarks of their respective owners and are used
+> here only to describe what this proxy talks to. No warranty of any kind —
+> see [LICENSE](LICENSE). You are responsible for your own credentials,
+> deployment, and compliance with each upstream service's terms.
+
 WASenderAPI's hosted MCP (`https://wasenderapi.com/mcp`) only accepts a **static
 Bearer token**, which Claude.ai's custom-connector UI refuses (it requires
 **OAuth 2.1 + PKCE**). This is a tiny Dockerized **OAuth 2.1 facade proxy** that
